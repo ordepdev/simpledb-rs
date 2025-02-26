@@ -3,8 +3,12 @@ pub struct Page {
 }
 
 impl Page {
-    pub fn new(blocksize: u32) -> Page {
-        Page { bytebuffer: vec![0; blocksize as usize] }
+    pub fn new(blocksize: usize) -> Page {
+        Page { bytebuffer: vec![0; blocksize] }
+    }
+
+    pub fn wrap(bytes: Vec<u8>) -> Page {
+        Page { bytebuffer: bytes }
     }
 
     pub fn get_byte(&self, offset: usize) -> Option<u8> {

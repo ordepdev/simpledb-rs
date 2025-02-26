@@ -1,12 +1,13 @@
 use std::fmt::Display;
 
+#[derive(Clone, Debug, Eq, Hash)]
 pub struct BlockId {
     pub filename: String,
-    pub number: u32,
+    pub number: usize,
 }
 
 impl BlockId {
-    pub fn new(filename: &str, number: u32) -> BlockId {
+    pub fn new(filename: &str, number: usize) -> BlockId {
         BlockId { filename: filename.to_string(), number }
     }
 
@@ -14,7 +15,7 @@ impl BlockId {
         &self.filename
     }
 
-    pub fn number(&self) -> u32 {
+    pub fn number(&self) -> usize {
         self.number
     }
 }
