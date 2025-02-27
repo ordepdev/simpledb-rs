@@ -33,10 +33,8 @@ impl FileMgr {
 
     pub(crate) fn read(&self, block: &BlockId, page: &mut Page) {
         let path = self.db_dir.join(block.filename());
-        let filename = path.to_str().unwrap();
         let number = block.number() as usize;
-        let mut files = self.open_files.write().unwrap();
-        let file = files.get_mut(filename).unwrap();
+        let mut file = self.open_file(path);
         file.seek(SeekFrom::Start(((number * self.block_size) as u64).into())).unwrap();
         file.read(page.bytebuffer.as_mut_slice()).unwrap();
         self.stats.write().unwrap().increment_read_blocks();

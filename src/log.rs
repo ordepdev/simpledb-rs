@@ -1,2 +1,2 @@
 mod logiterator;
-mod logmgr;
+pub mod logmgr;
