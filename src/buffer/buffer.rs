@@ -4,7 +4,7 @@ use crate::filemgr::FileMgr;
 use crate::log::logmgr::LogMgr;
 use crate::page::Page;
 
-struct  Buffer {
+pub struct Buffer {
     fm: Arc<FileMgr>,
     lm: Arc<Mutex<LogMgr>>,
     contents: Page,
@@ -15,7 +15,7 @@ struct  Buffer {
 }
 
 impl Buffer {
-    fn new(fm: Arc<FileMgr>, lm: Arc<Mutex<LogMgr>>) -> Buffer {
+    pub(crate) fn new(fm: Arc<FileMgr>, lm: Arc<Mutex<LogMgr>>) -> Buffer {
         let block_size = fm.block_size();
         Buffer {
             fm,
@@ -32,7 +32,7 @@ impl Buffer {
         &mut self.contents
     }
 
-    fn block(&self) -> &Option<BlockId> {
+    pub(crate) fn block(&self) -> &Option<BlockId> {
         &self.block
     }
 
@@ -43,15 +43,15 @@ impl Buffer {
         }
     }
 
-    fn is_pinned(&self) -> bool {
+    pub(crate) fn is_pinned(&self) -> bool {
         self.pins > 0
     }
 
-    fn transaction(&self) -> Option<i32> {
+    pub(crate) fn transaction(&self) -> Option<i32> {
         self.txnum
     }
 
-    fn flush(&mut self) {
+    pub(crate) fn flush(&mut self) {
         if self.txnum.is_some() {
             self.lm.lock().unwrap().flush_record(self.lsn.unwrap());
             if let Some(ref block) = self.block {
@@ -61,18 +61,18 @@ impl Buffer {
         }
     }
 
-    fn assign_to_block(&mut self, block: BlockId) {
+    pub(crate) fn assign_to_block(&mut self, block: BlockId) {
         self.flush();
         self.block = Some(block.clone());
         self.fm.read(&block, &mut self.contents);
         self.pins = 0;
     }
 
-    fn pin(&mut self) {
+    pub(crate) fn pin(&mut self) {
         self.pins += 1;
     }
 
-    fn unpin(&mut self) {
+    pub(crate) fn unpin(&mut self) {
         self.pins -= 1;
     }
 }
