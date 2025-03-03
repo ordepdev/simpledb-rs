@@ -1,8 +1,6 @@
-mod blockid;
-mod page;
-mod filemgr;
 mod log;
 mod buffer;
+mod file;
 
 fn main() {
     println!("Hello, world!");

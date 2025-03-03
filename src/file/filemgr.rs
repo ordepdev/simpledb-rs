@@ -4,8 +4,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::sync::RwLock;
-use crate::blockid::BlockId;
-use crate::page::Page;
+use crate::file::blockid::BlockId;
+use crate::file::page::Page;
 
 
 pub struct FileMgr {
@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn test_file_mgr() {
         let block_size = 200;
-        let fm = FileMgr::new(PathBuf::from("testdb"), block_size);
+        let fm = FileMgr::new(PathBuf::from("../../testdb"), block_size);
         let block = BlockId::new("testfile", 2);
 
         let mut page1 = Page::new(block_size);
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn test_file_length() {
         let block_size = 200;
-        let fm = FileMgr::new(PathBuf::from("testdb"), block_size);
+        let fm = FileMgr::new(PathBuf::from("../../testdb"), block_size);
         let block = BlockId::new("testfile", 2);
 
         let mut page1 = Page::new(block_size);

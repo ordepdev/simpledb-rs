@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
-use crate::blockid::BlockId;
-use crate::filemgr::FileMgr;
+use crate::file::blockid::BlockId;
+use crate::file::filemgr::FileMgr;
 use crate::log::logmgr::LogMgr;
-use crate::page::Page;
+use crate::file::page::Page;
 
 pub struct Buffer {
     fm: Arc<FileMgr>,
@@ -93,7 +93,7 @@ mod tests {
     use std::path::PathBuf;
     use super::*;
     use std::sync::Arc;
-    use crate::filemgr::FileMgr;
+    use crate::file::filemgr::FileMgr;
     use crate::log::logmgr::LogMgr;
 
     #[test]

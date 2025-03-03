@@ -1,6 +1,6 @@
-use crate::blockid::BlockId;
+use crate::file::blockid::BlockId;
 use crate::buffer::buffer::Buffer;
-use crate::filemgr::FileMgr;
+use crate::file::filemgr::FileMgr;
 use crate::log::logmgr::LogMgr;
 use std::sync::{Arc, Mutex};
 use std::thread::{current, park_timeout};
@@ -142,7 +142,7 @@ impl BufferMgr {
 
 mod tests {
     use super::*;
-    use crate::filemgr::FileMgr;
+    use crate::file::filemgr::FileMgr;
     use crate::log::logmgr::LogMgr;
     use std::path::PathBuf;
     use std::sync::Arc;

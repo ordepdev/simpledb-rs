@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use crate::blockid::BlockId;
-use crate::page::Page;
-use crate::filemgr::FileMgr;
+use crate::file::blockid::BlockId;
+use crate::file::page::Page;
+use crate::file::filemgr::FileMgr;
 use crate::log::logiterator::LogIterator;
 
 // The log manager is responsible for writing log records
@@ -105,7 +105,7 @@ impl LogMgr {
 
 mod tests {
     use super::*;
-    use crate::filemgr::FileMgr;
+    use crate::file::filemgr::FileMgr;
     use std::path::PathBuf;
 
     #[test]
