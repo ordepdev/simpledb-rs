@@ -15,6 +15,12 @@ pub struct Buffer {
 }
 
 impl Buffer {
+
+    // Creates a new buffer with the specified file and log managers.
+    // The buffer is initialized with an empty page. The buffer keeps
+    // track of the number of pins, the transaction that modified the
+    // buffer, and the LSN of the most recent log record associated
+    // with the buffer.
     pub(crate) fn new(fm: Arc<FileMgr>, lm: Arc<Mutex<LogMgr>>) -> Buffer {
         let block_size = fm.block_size();
         Buffer {
@@ -51,6 +57,9 @@ impl Buffer {
         self.txnum
     }
 
+    // Flushes the buffer to disk if it is dirty. The buffer is
+    // unpinned and the transaction that modified the buffer is
+    // cleared.
     pub(crate) fn flush(&mut self) {
         if self.txnum.is_some() {
             self.lm.lock().unwrap().flush_record(self.lsn.unwrap());
@@ -61,6 +70,9 @@ impl Buffer {
         }
     }
 
+    // Assigns the buffer to the specified block. The buffer is
+    // unpinned and the contents of the block are read into the
+    // buffer's page.
     pub(crate) fn assign_to_block(&mut self, block: BlockId) {
         self.flush();
         self.block = Some(block.clone());

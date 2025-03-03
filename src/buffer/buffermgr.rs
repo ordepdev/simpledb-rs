@@ -15,6 +15,10 @@ struct BufferMgr {
 impl BufferMgr {
    const MAX_TIME : u128 = 10000;
 
+    // Creates a new buffer manager with the specified number of buffers.
+    // Each buffer is initialized with an empty block. The buffer manager
+    // keeps track of the number of available buffers and the maximum time
+    // to wait for a buffer to be unpinned.
     fn new(fm: Arc<FileMgr>, lm: Arc<Mutex<LogMgr>>, buffsize:  usize) -> BufferMgr {
         let mut pool = Vec::with_capacity(buffsize);
         for _ in 0..buffsize {
@@ -27,6 +31,9 @@ impl BufferMgr {
         }
     }
 
+    // Returns the buffer at the specified index. Better than the
+    // original implementation because it avoids the need to clone
+    // the buffer and sequentially search for it in the pool.
     pub fn buffer(&mut self, idx: usize) -> &mut Buffer {
         &mut self.pool[idx]
     }
@@ -35,6 +42,7 @@ impl BufferMgr {
         self.available
     }
 
+    // Flushes all buffers assigned to the specified transaction.
     fn flush_all(&mut self, txnum: i32) {
         for buffer in self.pool.iter_mut() {
             if buffer.transaction().eq(&Some(txnum)) {
@@ -43,6 +51,9 @@ impl BufferMgr {
         }
     }
 
+    // Unpins the buffer at the specified index, making it available
+    // for other threads to use. The thread is also unparked to allow
+    // other threads to continue execution.
     fn unpin(&mut self, idx: usize) {
         self.pool[idx].unpin();
         if !self.pool[idx].is_pinned() {
@@ -51,9 +62,16 @@ impl BufferMgr {
         }
     }
 
+    // Pins the buffer containing the specified block. If the buffer
+    // is already pinned, the thread is placed on a waiting state until
+    // the buffer is unpinned. If the buffer is not unpinned after the
+    // maximum time, the buffer manager returns an error.
     fn pin(&mut self, block: &BlockId) -> Result<usize, &str> {
         let timestamp = Instant::now();
         let mut idx = self.try_pin(block);
+        // we keep track of how long we've been waiting for a buffer to be unpinned
+        // and if it exceeds the maximum time, the buffer manager assumes the caller
+        // is in a deadlock and returns an error that must be handled by the caller.
         while idx.is_none() && timestamp.elapsed().as_millis() < self.max_time {
             park_timeout(Duration::from_millis(self.max_time as u64));
             idx = self.try_pin(block);
@@ -64,6 +82,12 @@ impl BufferMgr {
         }
     }
 
+    // Attempts to pin the buffer containing the specified block. If the buffer
+    // is already pinned, the function returns the index of the buffer. If the
+    // buffer is not pinned, the function assigns the block to the buffer and
+    // returns the index of the buffer. If there are no available buffers, the
+    // function returns None, indicating that the caller must wait for a buffer
+    // to be unpinned.
     fn try_pin(&mut self, block: &BlockId) -> Option<usize> {
         if let Some(idx) = self.find_existing_buffer(block) {
             if !self.pool[idx].is_pinned() {
@@ -85,12 +109,13 @@ impl BufferMgr {
         None
     }
 
+    // Sequentially searches for a buffer containing the specified block.
     fn find_existing_buffer(&self, block: &BlockId) -> Option<usize> {
         for (idx, buffer) in self.pool.iter().enumerate() {
             if let Some(b) = buffer.block() {
                 if b.eq(block) {
                     // Instead of returning the buffer, we're returning
-                    // the index of the buffer.It differs from the original
+                    // the index of the buffer. It differs from the original
                     // implementation but avoids the need to clone the buffer.
                     return Some(idx);
                 }
@@ -99,11 +124,14 @@ impl BufferMgr {
         None
     }
 
+    // Sequentially searches for the first unpinned buffer in the pool.
+    // This is the Naive Buffer Replacement Strategy, which is not efficient
+    // but is good enough for the purpose of this engine.
     fn choose_unpinned_buffer(&mut self) -> Option<usize> {
         for (idx, buffer) in self.pool.iter().enumerate() {
             if !buffer.is_pinned() {
                 // Instead of returning the buffer, we're returning
-                // the index of the buffer.It differs from the original
+                // the index of the buffer. It differs from the original
                 // implementation but avoids the need to clone the buffer.
                 return Some(idx);
             }
@@ -141,12 +169,17 @@ mod tests {
         buff.push(bm.pin(&BlockId::new("testfile", 1)).unwrap());
         println!("Available buffers: {}", bm.available());
 
+        // The buffer pool is full at this point, attempting to pin block 3
+        // will place the thread on a waiting state until a buffer is unpinned.
+        // Given that no buffer will be unpinned, the buffer manager will return
+        // a timeout error.
         println!("Attempting to pin block 3...");
         match bm.pin(&BlockId::new("testfile", 3)) {
             Ok(_) => println!("Block 3 pinned successfully"),
             Err(error) => println!("{}", error),
         }
 
+        // Unpinning buffer 2 will make it available for pinning block 3.
         bm.unpin(buff[2]);
         buff.push(bm.pin(&BlockId::new("testfile", 3)).unwrap());
 
