@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{current, park_timeout};
 use std::time::{Duration, Instant};
 
-struct BufferMgr {
+pub(crate) struct BufferMgr {
     pool: Vec<Buffer>,
     available: usize,
     max_time: u128,
@@ -19,7 +19,7 @@ impl BufferMgr {
     // Each buffer is initialized with an empty block. The buffer manager
     // keeps track of the number of available buffers and the maximum time
     // to wait for a buffer to be unpinned.
-    fn new(fm: Arc<FileMgr>, lm: Arc<Mutex<LogMgr>>, buffsize:  usize) -> BufferMgr {
+    pub(crate) fn new(fm: Arc<FileMgr>, lm: Arc<Mutex<LogMgr>>, buffsize:  usize) -> BufferMgr {
         let mut pool = Vec::with_capacity(buffsize);
         for _ in 0..buffsize {
             pool.push(Buffer::new(fm.clone(), lm.clone()));
@@ -38,12 +38,12 @@ impl BufferMgr {
         &mut self.pool[idx]
     }
 
-    fn available(&self) -> usize {
+    pub(crate) fn available(&self) -> usize {
         self.available
     }
 
     // Flushes all buffers assigned to the specified transaction.
-    fn flush_all(&mut self, txnum: i32) {
+    pub fn flush_all(&mut self, txnum: i32) {
         for buffer in self.pool.iter_mut() {
             if buffer.transaction().eq(&Some(txnum)) {
                 buffer.flush();
@@ -54,7 +54,7 @@ impl BufferMgr {
     // Unpins the buffer at the specified index, making it available
     // for other threads to use. The thread is also unparked to allow
     // other threads to continue execution.
-    fn unpin(&mut self, idx: usize) {
+    pub(crate) fn unpin(&mut self, idx: usize) {
         self.pool[idx].unpin();
         if !self.pool[idx].is_pinned() {
             self.available += 1;
@@ -66,7 +66,7 @@ impl BufferMgr {
     // is already pinned, the thread is placed on a waiting state until
     // the buffer is unpinned. If the buffer is not unpinned after the
     // maximum time, the buffer manager returns an error.
-    fn pin(&mut self, block: &BlockId) -> Result<usize, &str> {
+    pub(crate) fn pin(&mut self, block: &BlockId) -> Result<usize, &str> {
         let timestamp = Instant::now();
         let mut idx = self.try_pin(block);
         // we keep track of how long we've been waiting for a buffer to be unpinned

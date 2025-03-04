@@ -4,6 +4,10 @@ use crate::file::filemgr::FileMgr;
 use crate::log::logmgr::LogMgr;
 use crate::file::page::Page;
 
+// The buffer holds a reference to the block assigned to its page.
+// It also keeps track of the number of times the buffer has been
+// pinned, the transaction that modified the buffer, and the LSN
+// of the most recent log record associated with the buffer.
 pub struct Buffer {
     fm: Arc<FileMgr>,
     lm: Arc<Mutex<LogMgr>>,
@@ -34,7 +38,7 @@ impl Buffer {
         }
     }
 
-    fn contents(&mut self) -> &mut Page {
+    pub(crate) fn contents(&mut self) -> &mut Page {
         &mut self.contents
     }
 
@@ -42,7 +46,7 @@ impl Buffer {
         &self.block
     }
 
-    fn set_modified(&mut self, txnum: i32, lsn: i32) {
+    pub(crate) fn set_modified(&mut self, txnum: i32, lsn: i32) {
         self.txnum = Some(txnum);
         if lsn >= 0 {
             self.lsn = Some(lsn);
@@ -59,7 +63,8 @@ impl Buffer {
 
     // Flushes the buffer to disk if it is dirty. The buffer is
     // unpinned and the transaction that modified the buffer is
-    // cleared.
+    // cleared. It ensures the assigned disk block has the same
+    // contents as its page.
     pub(crate) fn flush(&mut self) {
         if self.txnum.is_some() {
             self.lm.lock().unwrap().flush_record(self.lsn.unwrap());
@@ -70,9 +75,10 @@ impl Buffer {
         }
     }
 
-    // Assigns the buffer to the specified block. The buffer is
-    // unpinned and the contents of the block are read into the
-    // buffer's page.
+    // Assigns the buffer to the specified disk block. The buffer
+    // is first flushed, so that any modifications to the previous
+    // block are written to disk. Its contents are then replaced by
+    // the page contents of the new block.
     pub(crate) fn assign_to_block(&mut self, block: BlockId) {
         self.flush();
         self.block = Some(block.clone());

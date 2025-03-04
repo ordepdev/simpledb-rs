@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use crate::file::blockid::BlockId;
 use crate::file::filemgr::FileMgr;
 use crate::file::page::Page;
+use std::sync::Arc;
 
 pub struct LogIterator {
     fm: Arc<FileMgr>,

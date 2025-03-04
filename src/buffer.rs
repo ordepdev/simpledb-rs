@@ -1,2 +1,2 @@
-mod buffer;
-mod buffermgr;
+pub(crate) mod buffer;
+pub(crate) mod buffermgr;

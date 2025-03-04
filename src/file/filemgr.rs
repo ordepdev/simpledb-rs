@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::RwLock;
 use crate::file::blockid::BlockId;
@@ -87,9 +88,14 @@ impl FileMgr {
     pub(crate) fn block_size(&self) -> usize {
         self.block_size
     }
+
+    pub(crate) fn stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
 }
 
-struct Stats {
+#[derive(Debug, Clone)]
+pub struct Stats {
     read_blocks: u32,
     written_blocks: u32
 }
