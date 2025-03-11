@@ -20,11 +20,11 @@ impl BufferList {
         self.buffers.get(blk).map(|&i| i)
     }
 
-    pub(crate) fn pin(&mut self, blk: BlockId) {
+    pub(crate) fn pin(&mut self, blk: &BlockId) {
         match self.bm.lock().unwrap().pin(&blk) {
             Ok(idx) => {
                 self.buffers.insert(blk.clone(), idx);
-                self.pins.push(blk);
+                self.pins.push(blk.clone());
 
             }
             Err(_) => {}

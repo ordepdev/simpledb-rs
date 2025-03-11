@@ -62,7 +62,7 @@ impl LogMgr {
     // the "boundary" enabling the iterator to read the records
     // in reverse order starting from the position where the last
     // record was written.
-    pub(crate) fn append(&mut self, record: Vec<u8>) -> i32 {
+    pub(crate) fn append(&mut self, record: &Vec<u8>) -> i32 {
         let mut boundary = self.page.get_int(0);
         let record_size = record.len() as i32;
         let bytes_needed = record_size + 4;
@@ -136,7 +136,7 @@ mod tests {
         println!("Appending log records from {} to {}", start, end);
         for i in start..end+1 {
             let record = create_log_record(&format!("record{}", i), 100 + i);
-            let lsn = lm.append(record);
+            let lsn = lm.append(&record);
             print!("{} ", lsn);
         }
         println!();
