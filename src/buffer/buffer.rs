@@ -67,7 +67,12 @@ impl Buffer {
     // contents as its page.
     pub(crate) fn flush(&mut self) {
         if self.txnum.is_some() {
-            self.lm.lock().unwrap().flush_record(self.lsn.unwrap());
+            match self.lsn {
+                None => {}
+                Some(lsn) => {
+                    self.lm.lock().unwrap().flush_record(lsn);
+                }
+            }
             if let Some(ref block) = self.block {
                 self.fm.write(block, &mut self.contents);
             }

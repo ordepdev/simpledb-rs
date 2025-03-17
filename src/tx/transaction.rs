@@ -9,6 +9,7 @@ use crate::tx::recovery::checkpointrecord::CheckpointRecord;
 use crate::tx::recovery::logrecord::{create_log_record, Op};
 use crate::tx::recovery::recoverymgr::RecoveryMgr;
 use crate::tx::recovery::rollbackrecord::RollbackRecord;
+use crate::tx::concurrency::concurrencymgr::ConcurrencyMgr;
 
 pub(crate) struct Transaction {
     txnum: i32,
@@ -16,12 +17,15 @@ pub(crate) struct Transaction {
     fm: Arc<FileMgr>,
     rm: Arc<RecoveryMgr>,
     lm: Arc<Mutex<LogMgr>>,
+    cm: ConcurrencyMgr,
     bm: Arc<Mutex<BufferMgr>>,
 }
 
 static NEXT_TXNUM: AtomicI32 = AtomicI32::new(0);
 
 impl Transaction {
+    const END_OF_FILE: i32 = -1;
+
     fn new(fm: Arc<FileMgr>, bm: Arc<Mutex<BufferMgr>>, lm: Arc<Mutex<LogMgr>>) -> Transaction {
         let txnum = next_txnum();
         Transaction {
@@ -30,6 +34,7 @@ impl Transaction {
             fm,
             rm: Arc::new(RecoveryMgr::new(txnum, lm.clone(), bm.clone())),
             lm,
+            cm: ConcurrencyMgr::new(),
             bm,
         }
     }
@@ -38,6 +43,7 @@ impl Transaction {
         self.rm.commit();
         println!("Transaction {} committed", self.txnum);
         println!("Stats: {:?}", self.fm.stats());
+        self.cm.release();
         self.buffers.unpin_all();
     }
 
@@ -47,6 +53,7 @@ impl Transaction {
         let lsn = RollbackRecord::write_to_log(&self.lm, self.txnum);
         self.lm.lock().unwrap().flush_record(lsn);
         println!("Transaction {} rolled back", self.txnum);
+        self.cm.release();
         self.buffers.unpin_all();
     }
 
@@ -102,6 +109,7 @@ impl Transaction {
     }
 
     fn get_int(&mut self, blk: &BlockId, offset: usize) -> Option<i32> {
+        self.cm.slock(blk);
         match self.buffers.buffer(blk) {
             Some(idx) => Some(self.bm.lock().unwrap().buffer(idx).contents().get_int(offset)),
             None => None
@@ -109,6 +117,7 @@ impl Transaction {
     }
 
     pub(crate) fn set_int(&mut self, blk: &BlockId, offset: usize, val: i32, log: bool) {
+        self.cm.xlock(blk);
         match self.buffers.buffer(blk) {
             Some(idx) => {
                 let mut bm = self.bm.lock().unwrap();
@@ -124,11 +133,15 @@ impl Transaction {
         }
     }
 
-    fn size(&self, filename: &str) -> usize {
+    fn size(&mut self, filename: &str) -> usize {
+        let block = BlockId::new(filename, Transaction::END_OF_FILE as usize);
+        self.cm.slock(&block);
         self.fm.length(filename) as usize
     }
 
     fn append(&mut self, filename: &str) -> BlockId {
+        let block = BlockId::new(filename, Transaction::END_OF_FILE as usize);
+        self.cm.slock(&block);
         self.fm.append(filename)
     }
 
@@ -153,6 +166,8 @@ mod tests {
     use crate::log::logmgr::LogMgr;
     use std::path::PathBuf;
     use std::sync::Arc;
+    use std::thread;
+    use std::thread::{current, sleep};
     use crate::file::page::Page;
 
     #[test]
@@ -240,6 +255,78 @@ mod tests {
         fm.read(&blk0, &mut page0);
         fm.read(&blk1, &mut page1);
         assert_eq!(page0.bytebuffer, page1.bytebuffer);
+    }
+
+    #[test]
+    fn test_concurrency() {
+        let fm = Arc::new(FileMgr::new(PathBuf::from("concurrencytestdb"), 400));
+        let lm = Arc::new(Mutex::new(LogMgr::new(fm.clone(), "testlog.log")));
+        let bm = Arc::new(Mutex::new(BufferMgr::new(fm.clone(), lm.clone(), 3)));
+
+        let mut txA = Transaction::new(fm.clone(), bm.clone(), lm.clone());
+        let mut txB = Transaction::new(fm.clone(), bm.clone(), lm.clone());
+        let mut txC = Transaction::new(fm.clone(), bm.clone(), lm.clone());
+
+        let A = thread::spawn(move || {
+            let blk0 = BlockId::new("testfile", 0);
+            let blk1 = BlockId::new("testfile", 1);
+            txA.pin(&blk0.clone());
+            txA.pin(&blk1.clone());
+            println!("Tx A: requesting slock 0");
+            txA.get_int(&blk0, 0);
+            println!("Tx A: received slock 0");
+            sleep(std::time::Duration::from_secs(1));
+            println!("Tx A: requesting slock 1");
+            txA.get_int(&blk1, 0);
+            println!("Tx A: received slock 1");
+            txA.commit();
+            println!("Tx A: committed");
+        });
+
+        let B = thread::spawn(move || {
+            let blk0 = BlockId::new("testfile", 0);
+            let blk1 = BlockId::new("testfile", 1);
+            txB.pin(&blk0.clone());
+            txB.pin(&blk1.clone());
+            println!("Tx B: requesting xlock 1");
+            txB.set_int(&blk1, 0, 0, false);
+            println!("Tx B: received xlock 1");
+            sleep(std::time::Duration::from_secs(1));
+            println!("Tx B: requesting slock 0");
+            txB.get_int(&blk0, 0);
+            println!("Tx B: received slock 0");
+            txB.commit();
+            println!("Tx B: committed");
+        });
+
+        let C = thread::spawn(move || {
+            let blk0 = BlockId::new("testfile", 0);
+            let blk1 = BlockId::new("testfile", 1);
+            txC.pin(&blk0.clone());
+            txC.pin(&blk1.clone());
+            sleep(std::time::Duration::from_millis(500));
+            println!("Tx C: requesting xlock 0");
+            txC.set_int(&blk0, 0, 0, false);
+            println!("Tx C: received xlock 0");
+            sleep(std::time::Duration::from_secs(1));
+            println!("Tx C: requesting slock 1");
+            txC.get_int(&blk1, 0);
+            println!("Tx C: received slock 1");
+            txC.commit();
+            println!("Tx C: committed");
+        });
+
+        // This test executes three concurrent threads, corresponding to three transactions A, B,
+        // and C. These transactions do not explicitly lock and unlock blocks. Instead, `get_int`
+        // method obtains an _slock_, `set_int` method obtains an _xlock_, and `commit` method
+        // unlocks all its locks. The sequence of locks and unlocks for each transaction looks
+        // like this:
+        // txA: sLock(blk1); sLock(blk2); unlock(blk1); unlock(blk2)
+        // txB: xLock(blk2); sLock(blk1); unlock(blk1); unlock(blk2)
+        // txC: xLock(blk1); sLock(blk2); unlock(blk1); unlock(blk2)
+        A.join().unwrap();
+        B.join().unwrap();
+        C.join().unwrap();
     }
 
     fn print_values(msg: &str, fm: &Arc<FileMgr>, blk0: &BlockId, blk1: &BlockId) {
