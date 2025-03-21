@@ -1,15 +1,13 @@
-use std::sync::{Arc, Mutex};
 use crate::buffer::buffer::Buffer;
 use crate::buffer::buffermgr::BufferMgr;
 use crate::log::logmgr::LogMgr;
-use crate::tx::recovery::logrecord::{LogRecord, Op};
 use crate::tx::recovery::checkpointrecord::CheckpointRecord;
 use crate::tx::recovery::commitrecord::CommitRecord;
 use crate::tx::recovery::rollbackrecord::RollbackRecord;
 use crate::tx::recovery::setintrecord::SetIntRecord;
+use crate::tx::recovery::setstringrecord::SetStringRecord;
 use crate::tx::recovery::startrecord::StartRecord;
-use crate::tx::transaction::Transaction;
-use super::logrecord::create_log_record;
+use std::sync::{Arc, Mutex};
 
 pub struct RecoveryMgr {
     txnum: i32,
@@ -45,5 +43,11 @@ impl RecoveryMgr {
         let oldval = buffer.contents().get_int(offset);
         let block = buffer.block().clone().unwrap();
         SetIntRecord::write_to_log(&self.lm, self.txnum, block, offset, oldval)
+    }
+
+    pub(crate) fn set_string(&self, buffer: &mut Buffer, offset: usize, _newval: &str) -> i32 {
+        let oldval = buffer.contents().get_string(offset);
+        let block = buffer.block().clone().unwrap();
+        SetStringRecord::write_to_log(&self.lm, self.txnum, block, offset, &oldval)
     }
 }

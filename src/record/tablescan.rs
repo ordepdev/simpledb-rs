@@ -10,16 +10,16 @@ struct RecordId {
     slot: i32,
 }
 
-trait UpdateScan {
+pub trait UpdateScan {
     fn set_int(&mut self, field: &str, val: i32);
-    // fn set_string(&mut self, field: &str, val: &str);
+    fn set_string(&mut self, field: &str, val: &str);
     fn insert(&mut self);
     fn delete(&mut self);
     fn rid(&self) -> Option<RecordId>;
     fn move_to_rid(&mut self, rid: &RecordId);
 }
 
-struct TableScan {
+pub(crate) struct TableScan {
     tx: Arc<Mutex<Transaction>>,
     layout: Layout,
     rp: Option<RecordPage>,
@@ -46,7 +46,7 @@ impl TableScan {
         self.move_to_block(0);
     }
 
-    fn next(&mut self) -> bool {
+    pub(crate) fn next(&mut self) -> bool {
         if let Some(rp) = &mut self.rp {
             self.current_slot = rp.next_after(self.current_slot);
         }
@@ -68,7 +68,7 @@ impl TableScan {
         true
     }
 
-    fn get_int(&mut self, field: &str) -> i32 {
+    pub(crate) fn get_int(&mut self, field: &str) -> i32 {
         if let Some(rp) = &mut self.rp {
             if let Some(slot) = self.current_slot {
                 return rp.get_int(slot, field)
@@ -77,11 +77,20 @@ impl TableScan {
         -1
     }
 
+    pub(crate) fn get_string(&mut self, field: &str) -> String {
+        if let Some(rp) = &mut self.rp {
+            if let Some(slot) = self.current_slot {
+                return rp.get_string(slot, field)
+            }
+        }
+        "".to_string()
+    }
+
     fn has_field(&self, field: &str) -> bool {
         self.layout.schema().has_field(field)
     }
 
-    fn close(&self) {
+    pub fn close(&self) {
         if let Some(rp) = &self.rp {
             self.tx.lock().unwrap().unpin(&rp.block_id());
         }
@@ -109,10 +118,18 @@ impl TableScan {
 }
 
 impl UpdateScan for TableScan {
-    fn set_int(&mut self, field: &str, val: i32) {
+     fn set_int(&mut self, field: &str, val: i32) {
         if let Some(rp) = &mut self.rp {
             if let Some(slot) = self.current_slot {
                 rp.set_int(slot, field, val);
+            }
+        }
+    }
+
+     fn set_string(&mut self, field: &str, val: &str) {
+        if let Some(rp) = &mut self.rp {
+            if let Some(slot) = self.current_slot {
+                rp.set_string(slot, field, val);
             }
         }
     }

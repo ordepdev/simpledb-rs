@@ -1,4 +1,4 @@
 mod schema;
-mod layout;
+pub(crate) mod layout;
 mod recordpage;
-mod tablescan;
+pub(crate) mod tablescan;

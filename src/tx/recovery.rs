@@ -5,3 +5,4 @@ mod startrecord;
 mod commitrecord;
 pub(crate) mod rollbackrecord;
 mod setintrecord;
+mod setstringrecord;

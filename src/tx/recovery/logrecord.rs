@@ -5,6 +5,7 @@ use crate::tx::recovery::checkpointrecord::CheckpointRecord;
 use crate::tx::recovery::commitrecord::CommitRecord;
 use crate::tx::recovery::rollbackrecord::RollbackRecord;
 use crate::tx::recovery::setintrecord::SetIntRecord;
+use crate::tx::recovery::setstringrecord::SetStringRecord;
 use crate::tx::recovery::startrecord::StartRecord;
 use crate::tx::transaction::Transaction;
 
@@ -41,6 +42,9 @@ pub fn create_log_record(bytes: Vec<u8>) -> Option<Box<dyn LogRecord>> {
         }
         op if op == Op::SetInt as i32 => {
             Some(Box::new(SetIntRecord::new(page)))
+        }
+        op if op == Op::SetString as i32 => {
+            Some(Box::new(SetStringRecord::new(page)))
         }
         _ => {
             None

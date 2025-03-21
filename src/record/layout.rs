@@ -1,5 +1,5 @@
 use crate::file::page::Page;
-use crate::record::schema::Schema;
+pub(crate) use crate::record::schema::Schema;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -32,8 +32,12 @@ impl Layout {
         }
     }
 
+    pub fn from(schema: Schema, offsets: HashMap<String, i32>, slot_size: i32) -> Layout {
+        Layout { schema, offsets, slot_size }
+    }
+
     pub fn offset(&self, field: &str) -> i32 {
-        *self.offsets.get(field).unwrap()
+        self.offsets[field]
     }
 
     // The slot size is the sum of the field lengths plus 4 bytes for

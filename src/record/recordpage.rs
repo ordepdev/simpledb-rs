@@ -35,6 +35,16 @@ impl RecordPage {
         self.tx.lock().unwrap().set_int(&self.block_id, fpos as usize, val, true);
     }
 
+    pub(crate) fn get_string(&mut self, slot: i32, field: &str) -> String {
+        let fpos = self.offset(slot) + self.layout.offset(field);
+        self.tx.lock().unwrap().get_string(&self.block_id, fpos as usize).unwrap()
+    }
+
+    pub(crate) fn set_string(&mut self, slot: i32, field: &str, val: &str) {
+        let fpos = self.offset(slot) + self.layout.offset(field);
+        self.tx.lock().unwrap().set_string(&self.block_id, fpos as usize, val, true);
+    }
+
     pub fn next_after(&mut self, slot: Option<i32>) -> Option<i32> {
         self.search_after(slot, Slot::Used)
     }

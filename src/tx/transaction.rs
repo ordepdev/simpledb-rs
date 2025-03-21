@@ -133,6 +133,31 @@ impl Transaction {
         }
     }
 
+    pub(crate) fn get_string(&mut self, blk: &BlockId, offset: usize) -> Option<String> {
+        self.cm.slock(blk);
+        match self.buffers.buffer(blk) {
+            Some(idx) => Some(self.bm.lock().unwrap().buffer(idx).contents().get_string(offset)),
+            None => None
+        }
+    }
+
+    pub(crate) fn set_string(&mut self, blk: &BlockId, offset: usize, val: &str, log: bool) {
+        self.cm.xlock(blk);
+        match self.buffers.buffer(blk) {
+            Some(idx) => {
+                let mut bm = self.bm.lock().unwrap();
+                let buffer = bm.buffer(idx);
+                let mut lsn = -1;
+                if log {
+                    lsn = self.rm.set_string(buffer, offset, val);
+                }
+                buffer.contents().set_string(offset, val);
+                buffer.set_modified(self.txnum, lsn);
+            }
+            _ => {}
+        }
+    }
+
     pub fn size(&mut self, filename: &str) -> usize {
         let block = BlockId::new(filename, Transaction::END_OF_FILE as usize);
         self.cm.slock(&block);
@@ -220,6 +245,9 @@ mod tests {
             tx2.set_int(&blk1, i * 4, (i * 4) as i32, true);
         });
 
+        tx1.set_string(&blk0, 30, "abc", true);
+        tx2.set_string(&blk1, 30, "abc", true);
+
         tx1.commit();
         tx2.commit();
 
@@ -234,6 +262,9 @@ mod tests {
             tx3.set_int(&blk0, i * 4, (i * 4 + 100) as i32, true);
             tx4.set_int(&blk1, i * 4, (i * 4 + 200) as i32, true);
         });
+
+        tx3.set_string(&blk0, 30, "uvw", true);
+        tx4.set_string(&blk1, 30, "xyz", true);
 
         bm.lock().unwrap().flush_all(tx3.txnum);
         bm.lock().unwrap().flush_all(tx4.txnum);
@@ -337,8 +368,9 @@ mod tests {
         fm.read(&blk1, &mut page1);
         (0..6).for_each(|i| {
             print!("{:?} ", page0.get_int(i * 4));
-            print!("{:?} ", page1.get_int(i * 4));
+            print!("{:?} ", page1.get_string(i * 4));
         });
+        println!("{:?} {:?}", page0.get_string(30), page1.get_string(30));
         println!();
     }
 
