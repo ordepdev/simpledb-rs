@@ -2,12 +2,16 @@ use crate::file::page::Page;
 use crate::record::schema::Schema;
 use std::collections::HashMap;
 
+#[derive(Clone)]
 pub struct Layout {
     schema: Schema,
     offsets: HashMap<String, i32>,
     slot_size: i32,
 }
 
+// The Layout struct holds additional physical information about the record. It computes
+// the field and slot sizes, and the field offsets within a slot. When a table is created
+// this constructor is called to create to compute the layout information of the schema.
 impl Layout {
     pub fn new(schema: Schema) -> Layout {
         let mut offsets = HashMap::new();
@@ -32,6 +36,8 @@ impl Layout {
         *self.offsets.get(field).unwrap()
     }
 
+    // The slot size is the sum of the field lengths plus 4 bytes for
+    // an integer-sized empty/used flag.
     pub fn slot_size(&self) -> i32 {
         self.slot_size
     }

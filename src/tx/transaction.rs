@@ -11,7 +11,7 @@ use crate::tx::recovery::recoverymgr::RecoveryMgr;
 use crate::tx::recovery::rollbackrecord::RollbackRecord;
 use crate::tx::concurrency::concurrencymgr::ConcurrencyMgr;
 
-pub(crate) struct Transaction {
+pub struct Transaction {
     txnum: i32,
     buffers: BufferList,
     fm: Arc<FileMgr>,
@@ -26,7 +26,7 @@ static NEXT_TXNUM: AtomicI32 = AtomicI32::new(0);
 impl Transaction {
     const END_OF_FILE: i32 = -1;
 
-    fn new(fm: Arc<FileMgr>, bm: Arc<Mutex<BufferMgr>>, lm: Arc<Mutex<LogMgr>>) -> Transaction {
+    pub(crate) fn new(fm: Arc<FileMgr>, bm: Arc<Mutex<BufferMgr>>, lm: Arc<Mutex<LogMgr>>) -> Transaction {
         let txnum = next_txnum();
         Transaction {
             txnum,
@@ -39,7 +39,7 @@ impl Transaction {
         }
     }
 
-    fn commit(&mut self) {
+    pub(crate) fn commit(&mut self) {
         self.rm.commit();
         println!("Transaction {} committed", self.txnum);
         println!("Stats: {:?}", self.fm.stats());
@@ -108,7 +108,7 @@ impl Transaction {
         self.buffers.unpin(blk);
     }
 
-    fn get_int(&mut self, blk: &BlockId, offset: usize) -> Option<i32> {
+    pub fn get_int(&mut self, blk: &BlockId, offset: usize) -> Option<i32> {
         self.cm.slock(blk);
         match self.buffers.buffer(blk) {
             Some(idx) => Some(self.bm.lock().unwrap().buffer(idx).contents().get_int(offset)),
@@ -133,19 +133,19 @@ impl Transaction {
         }
     }
 
-    fn size(&mut self, filename: &str) -> usize {
+    pub fn size(&mut self, filename: &str) -> usize {
         let block = BlockId::new(filename, Transaction::END_OF_FILE as usize);
         self.cm.slock(&block);
         self.fm.length(filename) as usize
     }
 
-    fn append(&mut self, filename: &str) -> BlockId {
+    pub fn append(&mut self, filename: &str) -> BlockId {
         let block = BlockId::new(filename, Transaction::END_OF_FILE as usize);
         self.cm.slock(&block);
         self.fm.append(filename)
     }
 
-    fn block_size(&self) -> usize {
+    pub fn block_size(&self) -> usize {
         self.fm.block_size()
     }
 

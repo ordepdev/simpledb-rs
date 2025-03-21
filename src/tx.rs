@@ -1,4 +1,4 @@
 mod bufferlist;
-mod transaction;
+pub(crate) mod transaction;
 mod recovery;
 mod concurrency;

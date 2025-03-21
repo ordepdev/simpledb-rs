@@ -5,16 +5,21 @@ pub enum FieldType {
     VARCHAR = 12,
 }
 
+#[derive(Clone)]
 struct FieldInfo {
     ftype: i32,
     length: i32,
 }
 
+#[derive(Clone)]
 pub struct Schema {
     fields: Vec<String>,
     info: HashMap<String, FieldInfo>
 }
 
+// The Schema struct holds a record's _schema_, the name and type of each field, and the
+// length of each field. A schema can be thought of as a list of triples, each consisting of
+// a field name, a field type, and a field length.
 impl Schema {
     pub fn new() -> Schema {
         Schema {
